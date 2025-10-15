@@ -1,0 +1,10 @@
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Node (niet gebruikt, maar kan geen kwaad)
+node_modules/
+
+# Editors
+.vscode/
+.idea/
