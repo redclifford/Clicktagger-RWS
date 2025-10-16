@@ -1,45 +1,37 @@
 # Click Tagger Plus
 
-_Ontwikkeld door **Bart Leemeijer** namens **ABR Activatie**._
+Een eenvoudige, offline werkende click tagger tool.
 
-**Versie:** v3.5  
-**Datum:** 15-10-2025
+- **Versie**: v3.7
+- **Licentie**: MIT — © 2025 Bart Leemeijer
+- **Ontwikkeld namens**: ABR Activatie
+- **Datum**: 2025-10-16
 
-Een lichte webapp om snelle *click tags* te registreren (x1/x5), optioneel GPS vast te leggen en direct naar CSV te **downloaden** of te **delen**.
+## Snel starten (GitHub Pages)
 
-## Highlights
-- Bevat `.nojekyll` voor GitHub Pages (voorkomt Jekyll processing).
-- Grote x1/x5-knoppen met extra ruimte eronder (48px) voor minder mis-taps.
-- CSV export **Download** en **Delen** gebruiken **dezelfde bestandsnaam**.
-- Bestandsnaam-formaat: `DD-MM-YYYY[_Naam].csv` (bijv. `15-10-2025_Piet.csv`).
-- Donkere modus, eenvoudige UI, mobile-first.
-- Werkt volledig client-side (geen backend).
+1. Maak een nieuwe openbare GitHub repository, bijvoorbeeld `click-tagger-plus`.
+2. Upload de bestanden uit deze map:
+   - `index.html`
+   - `.nojekyll`
+   - `LICENSE`
+   - `NOTICE` (optioneel, voor context)
+   - `README.md` (dit bestand)
+3. Commit & push naar de `main` branch.
+4. Ga naar **Settings → Pages** en zet **Deploy from a branch** aan met:
+   - **Branch**: `main`
+   - **Folder**: `/ (root)`
+5. Je site staat binnen enkele seconden/minuten live op `https://<jouw-gebruikersnaam>.github.io/<repo-naam>/`.
 
-## Snel starten
-1. **Lokaal openen:** open `index.html` in je browser.
-2. **GitHub Pages:**
-   - Maak een nieuwe repo (bijv. `click-tagger-plus`).
-   - Upload de bestanden of push via git.
-   - Ga naar **Settings › Pages** en kies **Deploy from branch** op `main`, **/ (root)**.
-   - Je app staat dan op `https://<jouw-account>.github.io/<repo-naam>/`.
+## Bestandsnaam bij export
+Bestanden die je downloadt of deelt krijgen automatisch (indien ingevuld) de `Naam` en `route<nr>` toegevoegd.
 
-## Bestandsnaam export
-- Formaat: `DD-MM-YYYY[_Naam].csv`
-- De `Naam` komt uit het Naam-veld in de app; leeg laten betekent geen `_Naam` suffix.
+Voorbeeld: `16-10-2025_Jan_route12.csv`
 
-## Browser tips
-- **Android/Chrome**: delen + downloaden werken prima.
-- **iOS/Safari**: delen als bestand wordt ondersteund op recente iOS-versies, maar gedrag kan variëren.
-- Sta locatie-toegang toe als je GPS wilt loggen.
-
-## Changelog
-- **v3.5**: bestandsnamen omgezet naar `DD-MM-YYYY[_Naam]` voor **zowel** Download als Delen.
-- **v3.4**: `tags_` prefix verwijderd; extra knopruimte naar 48px.
-- **v3.3**: extra ruimte onder x1/x5; gedeelde bestandsnaam geharmoniseerd.
-
-## Licentie
-Zie **LICENSE** (MIT). Pas eventueel de naam/rechthebbende aan in het copyright-blok.
+## Ontwikkelnotities
+- CSV-kolommen: `Naam, Route, ObjectID, Latitude, Longitude, Timestamp, 5stuks`
+- De waarde van **Route** is beperkt tot maximaal 3 cijfers.
+- `index.html` is volledig self-contained en werkt zonder build-stap.
 
 ---
 
-_Vragen of wensen? Open een issue of stuur een bericht._
+© 2025 Bart Leemeijer — MIT License. Ontwikkeld namens ABR Activatie.

@@ -41,7 +41,7 @@
 </style>
 <style>
 /* --- v3.3: extra spacing below the big count buttons --- */
-#btnOne, #btnFive { margin-bottom: 48px !important; }
+#btnOne, #btnFive { margin-bottom: 80px !important; }
 </style>
 </head>
 <body>
@@ -55,6 +55,12 @@
   <label for="nameInput" class="small">Naam:</label>
   <input id="nameInput" type="text" class="input" placeholder="Typ je naam…" />
   <span class="small muted">Wordt aan elke CSV‑regel toegevoegd</span>
+</div>
+
+<div class="row">
+  <label for="routeInput" class="small">Route:</label>
+  <input id="routeInput" type="text" class="input" inputmode="numeric" pattern="\d*" maxlength="3" placeholder="Bijv. 12" />
+  <span class="small muted">Alleen cijfers, max 3 • Wordt aan de bestandsnaam toegevoegd</span>
 </div>
 
 <div class="grid">
@@ -93,6 +99,7 @@
   let rows = [];
   let nextId = 1;
   let userName = '';
+  let routeNum = '';
   let wakeLock = null; // Wake Lock sentinel
   let wakePref = false; // user preference
   const RECENT_COUNT = 5;
@@ -169,6 +176,7 @@
     const obj = {
       ObjectID: nextId++,
       Naam: userName || "",
+      Route: routeNum || "",
       Latitude: lastPos ? lastPos.coords.latitude : '',
       Longitude: lastPos ? lastPos.coords.longitude : '',
       Timestamp: fmtIso(now),
@@ -208,11 +216,12 @@
   }
 
   function toCSV(arr){
-    const header = ['Naam','ObjectID','Latitude','Longitude','Timestamp','5stuks'];
+    const header = ['Naam','Route','ObjectID','Latitude','Longitude','Timestamp','5stuks'];
     const lines = [header.join(',')];
     for(const r of arr){
       const line = [
         r.Naam,
+        r.Route,
         r.ObjectID,
         r.Latitude === '' ? '' : r.Latitude.toFixed ? r.Latitude.toFixed(7) : r.Latitude,
         r.Longitude === '' ? '' : r.Longitude.toFixed ? r.Longitude.toFixed(7) : r.Longitude,
@@ -255,7 +264,11 @@
     const MM = pad2(d.getMinutes());
     const base = `${dd}-${mm}-${yyyy}`;
     const n = sanitizeName(userName);
-    return n ? `${base}_${n}.csv` : `${base}.csv`;
+    const r = String(routeNum||'').trim();
+    const parts = [base];
+    if (n) parts.push(n);
+    if (r) parts.push(`route${r}`);
+    return parts.join('_') + '.csv';
   }
   function flashBtn(id, label){
     const btn = $(id);
@@ -309,6 +322,16 @@
     try{
       const n = localStorage.getItem('click_tagger_user');
       if(n){ userName = n; const el = $('nameInput'); if(el) el.value = n; }
+
+  function restoreRoute(){
+    try{
+      const r = localStorage.getItem('click_tagger_route');
+      if(r){
+        routeNum = String(r).replace(/\D+/g,'').slice(0,3);
+        const el = $('routeInput'); if(el) el.value = routeNum;
+      }
+    }catch(e){}
+  }
     }catch(e){}
   }
 
@@ -356,6 +379,12 @@
     userName = e.target.value.trim();
     try{ localStorage.setItem('click_tagger_user', userName); }catch(ex){}
   });
+  $('routeInput').addEventListener('input', (e)=>{
+    let v = String(e.target.value||'').replace(/\D+/g,'').slice(0,3);
+    e.target.value = v;
+    routeNum = v;
+    try{ localStorage.setItem('click_tagger_route', routeNum); }catch(ex){}
+  });
   $('btnStopGPS').addEventListener('click', stopGPS);
   $('btnShare').addEventListener('click', exportShareCSV);
   $('btnDownload').addEventListener('click', exportDownload);
@@ -391,6 +420,7 @@
   // init
   restoreTheme();
   restoreUser();
+  restoreRoute();
   restoreWakePref();
   restore();
 })();
