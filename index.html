@@ -40,12 +40,12 @@
   }
 </style>
 <style>
-/* --- v3.9: extra spacing below the big count buttons --- */
+/* --- v3.3: extra spacing below the big count buttons --- */
 #btnOne, #btnFive { margin-bottom: 80px !important; }
 </style>
 </head>
 <body>
-<h1>Click Tagger – Snelwegmeting <span class="pill" id="version">v3.9</span></h1>
+<h1>Click Tagger – Snelwegmeting <span class="pill" id="version">v3.2</span></h1>
 <div class="status">
   <div><strong>GPS status:</strong> <span id="gpsStatus">Nog niet gestart</span></div>
   <div class="small">Laatste fix: <span id="fixTime">–</span> • Lat: <span id="lat">–</span> • Lon: <span id="lon">–</span> • Acc: <span id="acc">–</span> m • <strong>Scherm:</strong> <span id="wakeStatus">Uit</span></div>
@@ -59,8 +59,7 @@
 
 <div class="row">
   <label for="routeInput" class="small">Route:</label>
-  <input id="routeInput" type="text" class="input" inputmode="text" pattern="[0-9/\-]*" maxlength="3" placeholder="Bijv. 1/2" />
-  
+  <input id="routeInput" type="text" class="input" inputmode="numeric" pattern="[0-9/\-]*" maxlength="3" placeholder="Bijv. 3" />
 </div>
 
 <div class="grid">
@@ -274,6 +273,9 @@
     if (n) parts.push(n);
     if (rSafe) parts.push(`route${rSafe}`);
     return parts.join('_') + '.csv';
+  }-${mm}-${yyyy}`;
+    const n = sanitizeName(userName);
+    return n ? `${base}_${n}.csv` : `${base}.csv`;
   }
   function flashBtn(id, label){
     const btn = $(id);
@@ -354,7 +356,7 @@
     try{
       const r = localStorage.getItem('click_tagger_route');
       if(r){
-        routeNum = String(r).replace(/\D+/g,'').slice(0,3);
+        routeNum = String(r).replace(/[^0-9\/-]+/g,'').slice(0,3);
         const el = $('routeInput'); if(el) el.value = routeNum;
       }
     }catch(e){}
