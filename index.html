@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="nl" class="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Click Tagger – Snelwegmeting (Plus)</title>
+<style>
+  :root { color-scheme: light dark; }
+  * { -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; }
+  body { font-family: system-ui, Arial, sans-serif; margin: 12px; transition: background .2s, color .2s; touch-action: manipulation; padding-bottom: calc(12px + env(safe-area-inset-bottom)); }
+  h1 { font-size: clamp(1.1rem, 2.2vw, 1.4rem); margin-bottom: 8px; }
+  .status { padding: 8px; border: 1px solid #ddd; border-radius: 12px; margin-bottom: 12px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  button.big { font-size: clamp(2.2rem, 7vw, 3.4rem); padding: 20px; border-radius: 18px; border: 1px solid #999; min-height: 26vh; width: 100%; user-select: none; -webkit-user-select: none; }
+  button.big:active { transform: scale(0.98); }
+  button.secondary { font-size: 1rem; padding: 12px 14px; border-radius: 12px; border: 1px solid #999; user-select: none; -webkit-user-select: none; }
+  button.secondary.active { border-color:#0a7; box-shadow: 0 0 0 2px rgba(0,170,119,.35) inset; }
+  .row { margin: 12px 0; display:flex; flex-wrap: wrap; gap:10px; align-items:center; }
+  .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+  .small { font-size: 0.95rem; color: inherit; opacity:.9; }
+  .ok { color: #0a7; }
+  .warn { color: #a70; }
+  .bad { color: #c00; }
+  .muted { opacity: .7; }
+  table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: .95rem; }
+  th, td { border-bottom: 1px solid #e5e5e5; padding: 6px 4px; text-align: left; }
+  .right { text-align:right; }
+  .pill { display:inline-block; padding:2px 8px; border-radius:999px; border:1px solid #999; font-size:.8rem; }
+  .dark body { background:#111; color:#eee; }
+  .dark .status { border-color:#333; }
+  .kbd { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size:.85rem; padding:2px 6px; border:1px solid #aaa; border-bottom-width:2px; border-radius:6px; }
+  input[type="text"].input { font-size: 1.1rem; padding: 10px 12px; border-radius: 10px; border: 1px solid #aaa; min-width: 14ch; }
+  @media (max-width: 880px) {
+    /* Houd twee kolommen voor duim-bereik op telefoons */
+    .grid { grid-template-columns: 1fr 1fr; }
+    button.big { min-height: 34vh; }
+    .row { gap: 8px; }
+    input[type="text"].input { width: 100%; flex: 1; }
+  }
+</style>
+<style>
+/* --- v3.3: extra spacing below the big count buttons --- */
+#btnOne, #btnFive { margin-bottom: 80px !important; }
+</style>
+</head>
+<body>
+<h1>Click Tagger – Snelwegmeting <span class="pill" id="version"><span id="appVersion"></span></span></h1>
+<div class="status">
+  <div><strong>GPS status:</strong> <span id="gpsStatus">Nog niet gestart</span></div>
+  <div class="small">Laatste fix: <span id="fixTime">–</span> • Lat: <span id="lat">–</span> • Lon: <span id="lon">–</span> • Acc: <span id="acc">–</span> m • <strong>Scherm:</strong> <span id="wakeStatus">Uit</span></div>
+</div>
+
+<div class="row">
+  <label for="nameInput" class="small">Naam:</label>
+  <input id="nameInput" type="text" class="input" placeholder="Typ je naam…" />
+  
+</div>
+
+<div class="row">
+  <label for="routeInput" class="small">Route:</label>
+  <input id="routeInput" type="text" class="input" inputmode="numeric" pattern="[0-9/\-]*" maxlength="3" placeholder="Bijv. 3" />
+</div>
+
+<div class="grid">
+  <button id="btnOne" class="big">x1</button>
+  <button id="btnFive" class="big">x5</button>
+</div>
+
+<div class="row">
+  <button id="btnStartGPS" class="secondary">Start GPS</button>
+  <button id="btnStopGPS" class="secondary">Stop GPS</button>
+  <button id="btnWake" class="secondary">Scherm blijft aan</button>
+  <button id="btnShare" class="secondary">Delen</button>
+  <button id="btnDownload" class="secondary">Download CSV</button>
+  <button id="btnUndo" class="secondary">Ongedaan maken</button>
+  <button id="btnReset" class="secondary">Reset</button>
+  <button id="btnDark" class="secondary">Dark mode</button>
+</div>
+
+<div class="row small">
+  <div>Totaal geteld: <strong id="total">0</strong> • Records: <strong id="records">0</strong></div>
+  <div class="muted">• Sneltoetsen: <span class="kbd">spatie</span> = +1, <span class="kbd">Enter</span> = +5, <span class="kbd">z</span> = undo, <span class="kbd">e</span> = export, <span class="kbd">g</span> = GPS aan/uit</div>
+</div>
+
+<div class="row">
+  <details style="width:100%">
+    <summary class="small">Laatst gelogde items</summary>
+    <div id="recent"></div>
+  </details>
+</div>
+
+<script>
+  const APP_VERSION = 'v3.9';
+(function(){
+  let watchId = null;
+  let lastPos = null;
+  let total = 0;
+  let rows = [];
+  let nextId = 1;
+  let userName = '';
+  let routeNum = '';
+  let wakeLock = null; // Wake Lock sentinel
+  let wakePref = false; // user preference
+  const RECENT_COUNT = 5;
+
+  const $ = (id) => document.getElementById(id);
+  function fmtIso(d){ return new Date(d).toISOString(); }
+  function fmtDisp(d){ const x = new Date(d); return x.toLocaleString(); }
+  function set(el, v){ $(el).textContent = v; }
+
+  function persist(){
+    try{
+      const state = { rows, nextId, total, userName, routeNum, wakePref };
+      localStorage.setItem('click_tagger_state', JSON.stringify(state));
+    }catch(e){}
+  };
+    try { localStorage.setItem('click_tagger_data', JSON.stringify(data)); }
+    catch(e){ /* ignore quota */ }
+  }
+  function restore(){
+    try{
+      const raw = localStorage.getItem('click_tagger_data');
+      if(!raw) return;
+      const data = JSON.parse(raw);
+      rows = Array.isArray(data.rows) ? data.rows : [];
+      total = Number(data.total||0);
+      nextId = Number(data.nextId||1);
+      set('records', rows.length);
+      set('total', total);
+      renderRecent();
+    }catch(e){ /* ignore */ }
+  }
+
+  function startGPS(){
+    if(!('geolocation' in navigator)){
+      set('gpsStatus','Niet ondersteund'); return;
+    }
+    set('gpsStatus','Bezig met zoeken…');
+    try{
+      watchId = navigator.geolocation.watchPosition((pos)=>{
+        lastPos = pos;
+        const c = pos.coords;
+        set('gpsStatus','OK');
+        set('fixTime', fmtIso(pos.timestamp));
+        set('lat', c.latitude.toFixed(7));
+        set('lon', c.longitude.toFixed(7));
+        set('acc', (c.accuracy||0).toFixed(1));
+        // kleur op basis van nauwkeurigheid
+        const acc = c.accuracy||9999;
+        const el = $('gpsStatus');
+        el.classList.remove('ok','warn','bad');
+        if (acc <= 10) el.classList.add('ok');
+        else if (acc <= 30) el.classList.add('warn');
+        else el.classList.add('bad');
+      }, (err)=>{
+        set('gpsStatus','Fout: ' + err.message);
+        const el = $('gpsStatus'); el.classList.remove('ok','warn','bad');
+      }, {
+        enableHighAccuracy: true,
+        maximumAge: 0,
+        timeout: 2000
+      });
+    }catch(e){
+      set('gpsStatus','Fout: ' + e.message);
+    }
+  }
+
+  function stopGPS(){
+    if(watchId !== null){ navigator.geolocation.clearWatch(watchId); watchId = null; }
+    set('gpsStatus','Gestopt');
+    const el = $('gpsStatus'); el.classList.remove('ok','warn','bad');
+  }
+
+  function vibrate(ms){ if (window.navigator && navigator.vibrate) { navigator.vibrate(ms); } }
+
+  function addRow(count){
+    if (wakePref && !wakeLock && document.visibilityState === 'visible') { tryEnableWake(); }
+    const now = Date.now();
+    const obj = {
+      ObjectID: nextId++,
+      Naam: userName || "",
+      Route: routeNum || \"\",
+      Latitude: lastPos ? lastPos.coords.latitude : '',
+      Longitude: lastPos ? lastPos.coords.longitude : '',
+      Timestamp: fmtIso(now),
+      FiveBatch: (count===5) ? 1 : ''
+    };
+    rows.push(obj);
+    total += count;
+    set('records', rows.length);
+    set('total', total);
+    renderRecent();
+    persist();
+    vibrate(count===5 ? 25 : 10);
+  }
+
+  function undo(){
+    const r = rows.pop();
+    if(!r) return;
+    total -= (r.FiveBatch ? 5 : 1);
+    set('records', rows.length);
+    set('total', total);
+    renderRecent();
+    persist();
+    vibrate(8);
+  }
+
+  function renderRecent(){
+    const root = $('recent');
+    if(!root) return;
+    const last = rows.slice(-RECENT_COUNT).reverse();
+    if(last.length===0){ root.innerHTML = '<div class="small muted">Nog geen items</div>'; return; }
+    let html = '<table><thead><tr><th>ID</th><th>Tijd</th><th>Lat</th><th>Lon</th><th>×5</th></tr></thead><tbody>';
+    for(const r of last){
+      html += `<tr><td class="right">${r.ObjectID}</td><td>${fmtDisp(r.Timestamp)}</td><td>${r.Latitude === '' ? '' : (r.Latitude.toFixed ? r.Latitude.toFixed(7) : r.Latitude)}</td><td>${r.Longitude === '' ? '' : (r.Longitude.toFixed ? r.Longitude.toFixed(7) : r.Longitude)}</td><td class="right">${r.FiveBatch? '1' : ''}</td></tr>`;
+    }
+    html += '</tbody></table>';
+    root.innerHTML = html;
+  }
+
+  function toCSV(arr){
+    const header = ['Naam','Route','ObjectID','Latitude','Longitude','Timestamp','5stuks'];
+    const lines = [header.join(',')];
+    for(const r of arr){
+      const line = [
+        r.Naam,
+        r.Route,
+        r.ObjectID,
+        r.Latitude === '' ? '' : r.Latitude.toFixed ? r.Latitude.toFixed(7) : r.Latitude,
+        r.Longitude === '' ? '' : r.Longitude.toFixed ? r.Longitude.toFixed(7) : r.Longitude,
+        r.Timestamp,
+        r.FiveBatch
+      ].join(',');
+      lines.push(line);
+    }
+    return lines.join('\n');
+  }
+
+  function download(filename, text){
+    const blob = new Blob([text], {type: 'text/csv;charset=utf-8;'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  
+  /* BEGIN Export helpers */
+  
+  function applyVersion(){
+    try{
+      // Update <title>
+      const baseTitle = (document.title || '').replace(/\s*v\d+(?:\.\d+)*/i,'').trim();
+      document.title = baseTitle ? (baseTitle + ' ' + APP_VERSION) : ('Click Tagger Plus ' + APP_VERSION);
+      // Update badge if present
+      const badge = document.getElementById('appVersion');
+      if (badge) badge.textContent = APP_VERSION;
+    }catch(e){}
+  }
+
+  function pad2(n){ return String(n).padStart(2,'0'); }
+  function sanitizeName(str){
+    str = (str||'').trim();
+    let out = '';
+    const ok = /[A-Za-z0-9_-]/;
+    for (const ch of str){ if (ch===' ') out+='-'; else if (ok.test(ch)) out+=ch; }
+    return out;
+  }
+  function makeFilename(){
+    const d = new Date();
+    const yyyy = d.getFullYear();
+    const mm = pad2(d.getMonth()+1);
+    const dd = pad2(d.getDate());
+    const HH = pad2(d.getHours());
+    const MM = pad2(d.getMinutes());
+    const base = `${dd}-${mm}-${yyyy}`;
+    const n = sanitizeName(userName);
+    const r = String(routeNum||'').trim();
+    const rSafe = r.replace(/[^A-Za-z0-9_-]+/g,'-');
+    const parts = [base];
+    if (n) parts.push(n);
+    if (rSafe) parts.push(`route${rSafe}`);
+    return parts.join('_') + '.csv';
+  }-${mm}-${yyyy}`;
+    const n = sanitizeName(userName);
+    return n ? `${base}_${n}.csv` : `${base}.csv`;
+  }
+  function flashBtn(id, label){
+    const btn = $(id);
+    if(!btn) return;
+    const old = btn.textContent;
+    btn.textContent = label;
+    setTimeout(()=>{ btn.textContent = old; }, 1200);
+  }
+  async function exportShareCSV(){
+    try{
+      const csv = toCSV(rows);
+      const filename = makeFilename();
+      const blob = new Blob([csv], {type: 'text/csv;charset=utf-8;'});
+      if (navigator.share && navigator.canShare) {
+        try{
+          const file = new File([blob], filename, {type: 'text/csv'});
+          if (navigator.canShare({ files: [file] })) {
+            await navigator.share({ files: [file], title: filename, text: 'Click Tagger export' });
+            flashBtn('btnShare','Gedeeld!');
+            vibrate(12);
+            return;
+          }
+        }catch(_){ }
+      }
+      // Fallback op downloaden
+      exportDownload();
+    }catch(e){ alert('Delen mislukt: ' + e.message); }
+  }
+  function exportDownload(){
+    const csv = toCSV(rows);
+    const filename = makeFilename();
+    download(filename, csv);
+    flashBtn('btnDownload','Gedownload!');
+    vibrate(8);
+  }
+  /* END Export helpers */
+  function toggleDark(){
+    const isDark = document.documentElement.classList.toggle('dark');
+    // bewaar voorkeur
+    try{ localStorage.setItem('click_tagger_theme', isDark ? 'dark' : 'light'); }catch(e){}
+  }
+
+  function restoreTheme(){
+    try{
+      const t = localStorage.getItem('click_tagger_theme');
+      if(t === 'dark') document.documentElement.classList.add('dark');
+    }catch(e){}
+  }
+
+  function restoreUser(){
+    try{
+      const n = localStorage.getItem('click_tagger_user');
+      if(n){ userName = n; const el = $('nameInput'); if(el) el.value = n; }
+
+  
+  function restoreState(){
+    try{
+      const raw = localStorage.getItem('click_tagger_state');
+      if(!raw) return;
+      const s = JSON.parse(raw);
+      if(s && Array.isArray(s.rows)){
+        rows = s.rows;
+        nextId = typeof s.nextId==='number' ? s.nextId : (rows.length ? Math.max(...rows.map(r=>r.ObjectID))+1 : 1);
+        total = typeof s.total==='number' ? s.total : rows.reduce((a,r)=>a+(r.FiveBatch?5:1),0);
+        userName = s.userName || userName;
+        routeNum = s.routeNum || routeNum;
+        wakePref = s.wakePref ?? wakePref;
+        const nameEl = $('nameInput'); if(nameEl) nameEl.value = userName;
+        const routeEl = $('routeInput'); if(routeEl) routeEl.value = routeNum;
+        set('records', rows.length);
+        set('total', total);
+        renderRecent();
+      }
+    }catch(e){}
+  }
+
+  function restoreRoute(){
+    try{
+      const r = localStorage.getItem('click_tagger_route');
+      if(r){
+        routeNum = String(r).replace(/[^0-9\/-]+/g,'').slice(0,3);
+        const el = $('routeInput'); if(el) el.value = routeNum;
+      }
+    }catch(e){}
+  }
+    }catch(e){}
+  }
+
+  // Wake Lock helpers
+  async function tryEnableWake(){
+    if(!('wakeLock' in navigator)) { set('wakeStatus','Niet ondersteund'); return; }
+    try{
+      wakeLock = await navigator.wakeLock.request('screen');
+      set('wakeStatus','Aan');
+      const btn = $('btnWake'); if(btn) btn.classList.add('active');
+      wakeLock.addEventListener('release', ()=>{
+        set('wakeStatus','Uit');
+        if(wakePref && document.visibilityState === 'visible'){
+          // probeer opnieuw te activeren als gebruiker dit wil
+          tryEnableWake();
+        }
+      });
+    }catch(e){ set('wakeStatus','Uit'); }
+  }
+  function enableWakePref(){
+    wakePref = true;
+    try{ localStorage.setItem('click_tagger_wake','on'); }catch(e){}
+    if(!wakeLock && document.visibilityState === 'visible') { tryEnableWake(); }
+  }
+  function disableWakePref(){
+    wakePref = false;
+    try{ localStorage.setItem('click_tagger_wake','off'); }catch(e){}
+    if(wakeLock){ try{ wakeLock.release(); }catch(_){} wakeLock = null; }
+    set('wakeStatus','Uit');
+    const btn = $('btnWake'); if(btn) btn.classList.remove('active');
+  }
+  function restoreWakePref(){
+    try{
+      const w = localStorage.getItem('click_tagger_wake');
+      if(w === 'on'){ wakePref = true; const btn = $('btnWake'); if(btn) btn.classList.add('active'); }
+    }catch(e){}
+  }
+
+  // events
+  $('btnStartGPS').addEventListener('click', startGPS);
+  $('btnWake').addEventListener('click', ()=>{ if(wakePref){ disableWakePref(); } else { enableWakePref(); tryEnableWake(); } });
+  document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='visible' && wakePref && !wakeLock){ tryEnableWake(); } });
+  window.addEventListener('pointerdown', ()=>{ if(wakePref && !wakeLock) tryEnableWake(); }, { once:true });
+  $('nameInput').addEventListener('input', (e)=>{
+    userName = e.target.value.trim();
+    try{ localStorage.setItem('click_tagger_user', userName); }catch(ex){}
+  });
+  $('routeInput').addEventListener('input', (e)=>{
+    let v = String(e.target.value||'').replace(/[^0-9\/-]+/g,'').slice(0,3);
+    e.target.value = v;
+    routeNum = v;
+    try{ localStorage.setItem('click_tagger_route', routeNum); }catch(ex){}
+  });
+  $('btnStopGPS').addEventListener('click', stopGPS);
+  $('btnShare').addEventListener('click', exportShareCSV);
+  $('btnDownload').addEventListener('click', exportDownload);
+    $('btnReset').addEventListener('click', ()=>{
+    if(!confirm('Alles wissen?')) return;
+    rows = []; total = 0; nextId = 1;
+    set('records','0'); set('total','0');
+    renderRecent();
+    persist();
+  });
+  $('btnOne').addEventListener('click', ()=> addRow(1));
+  $('btnFive').addEventListener('click', ()=> addRow(5));
+  $('btnUndo').addEventListener('click', undo);
+  $('btnDark').addEventListener('click', toggleDark);
+
+  // keyboard shortcuts
+  window.addEventListener('keydown', (e)=>{
+    // voorkom dat spatie/enter de pagina scrolt of form-submit
+    if(['Space','Spacebar','Enter'].includes(e.code)) e.preventDefault();
+    if(e.repeat) return; // geen vasthouden
+    // geen sneltoetsen tijdens typen in invoervelden
+    const ae = document.activeElement;
+    if(ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.isContentEditable)) return;
+
+    const k = e.key.toLowerCase();
+    if(k === ' ' || e.code === 'Space'){ addRow(1); }
+    else if(k === 'enter' || e.code === 'Enter'){ addRow(5); }
+    else if(k === 'z'){ undo(); }
+    else if(k === 'e'){ exportDownload(); }
+    else if(k === 'g'){ if(watchId===null) startGPS(); else stopGPS(); }
+  }, { passive:false });
+
+  // init
+  restoreTheme();
+  restoreUser();
+  restoreRoute();
+  restoreState();
+  restoreWakePref();
+  restore();
+})();
+
+  // Autosave on lifecycle events
+  window.addEventListener('pagehide', persist);
+  window.addEventListener('beforeunload', persist);
+  document.addEventListener('visibilitychange', ()=>{ if(document.hidden) persist(); });
+  setInterval(persist, 10000);
+
+</script>
+</body>
+</html>
+
+<script>
+  try{
+    if (typeof APP_VERSION === 'undefined') window.APP_VERSION = 'v3.9';
+    var el = document.getElementById('version');
+    if (el && !el.textContent) el.textContent = APP_VERSION;
+  }catch(e){}
+</script>
