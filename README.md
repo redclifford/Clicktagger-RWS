@@ -1,12 +1,12 @@
 # Click Tagger Plus
 
-**Versie:** v3.9  
-**Omschrijving:** Een lichte webapp om clicks te loggen met o.a. GPS-ondersteuning en CSV-export. Geoptimaliseerd voor mobiel/tablet.
+**Versie:** v3.10  
+**Omschrijving:** Lichte webapp om clicks te loggen met o.a. GPS-ondersteuning en CSV-export. Geoptimaliseerd voor mobiel/tablet.
 
 ## Wat zit erin
 - **Persistente data:** gegevens blijven bewaard via `localStorage` tot je handmatig reset.
-- **Route-veld:** alleen cijfers en de tekens `-` en `/` toegestaan; **max 5** tekens.
-- **Exportnaam:** elke `/` in de route wordt **`-`** in de bestandsnaam.
+- **Route-veld (v3.10):** **alleen cijfers**, **max 5** tekens (UI + JS).
+- **Exportnaam:** gebruikt alleen de cijfers uit de route.
 - **Kleine knoppen:** Start/Stop GPS, Delen/Download CSV, Undo, Dark mode.
 - **Sneltoetsen:** spatie (x1), `5` (x5), `e` (export), `g` (GPS aan/uit).
 - **Wake Lock**-optie (indien ondersteund door het apparaat).
@@ -24,4 +24,4 @@
 Open gewoon **index.html** in je browser. Je hebt geen build-stap of tooling nodig.
 
 ## Licentie
-Nog niet ingesteld. Voeg eventueel zelf een **LICENSE** toe (bijv. MIT) als je dat wilt.
+MIT — zie het bestand **LICENSE**. Vergeet niet `<Your Name>` in `LICENSE` te vervangen door je eigen naam.

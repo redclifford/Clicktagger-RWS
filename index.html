@@ -45,7 +45,7 @@
 </style>
 </head>
 <body>
-<h1>Click Tagger – Snelwegmeting <span class="pill" id="version">v3.9</span></h1>
+<h1>Click Tagger – Snelwegmeting <span class="pill" id="version">v3.10</span></h1>
 <div class="status">
   <div><strong>GPS status:</strong> <span id="gpsStatus">Nog niet gestart</span></div>
   <div class="small">Laatste fix: <span id="fixTime">–</span> • Lat: <span id="lat">–</span> • Lon: <span id="lon">–</span> • Acc: <span id="acc">–</span> m • <strong>Scherm:</strong> <span id="wakeStatus">Uit</span></div>
@@ -59,8 +59,8 @@
 
 <div class="row">
   <label for="routeInput" class="small">Route:</label>
-  <input id="routeInput" type="text" class="input" inputmode="numeric" pattern="[0-9/\-]*" placeholder="Bijv. 12 of 12/5" maxlength="5" />
-  <span class="small muted">Alleen cijfers en de tekens - en / toegestaan</span>
+  <input id="routeInput" type="text" class="input" inputmode="numeric" pattern="[0-9]*" placeholder="Bijv. 12345" maxlength="5" />
+  
 </div>
 
 <div class="grid">
@@ -265,8 +265,8 @@
     const base = `${dd}-${mm}-${yyyy}`;
     const n = sanitizeName(userName);
     const rRaw = String(routeNum||'').trim();
-    // In exported filename, show '/' as '-', keep digits and '-'
-    const r = rRaw.replace(/\//g,'-').replace(/[^0-9\-]+/g,'');
+    // In bestandsnaam: alleen cijfers
+    const r = rRaw.replace(/[^0-9]+/g,'');
     const parts = [base];
     if (n) parts.push(n);
     if (r) parts.push(`route${r}`);
@@ -331,8 +331,7 @@
     try{
       const r = localStorage.getItem('click_tagger_route');
       if(r){
-        // allow only digits plus '-' and '/', max 5 chars
-        routeNum = String(r).replace(/[^0-9\/\-]+/g,'').slice(0,5);
+        routeNum = String(r).replace(/[^0-9]+/g,'').slice(0,5);
         const el = $('routeInput'); if(el) el.value = routeNum;
       }
     }catch(e){}
@@ -383,8 +382,7 @@
     try{ localStorage.setItem('click_tagger_user', userName); }catch(ex){}
   });
   $('routeInput').addEventListener('input', (e)=>{
-    // keep only digits, '-' and '/', max 5 chars
-    let v = String(e.target.value||'').replace(/[^0-9\/\-]+/g,'').slice(0,5);
+    let v = String(e.target.value||'').replace(/[^0-9]+/g,'').slice(0,5);
     e.target.value = v;
     routeNum = v;
     try{ localStorage.setItem('click_tagger_route', routeNum); }catch(ex){}
